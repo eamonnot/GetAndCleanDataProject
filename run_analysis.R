@@ -1,22 +1,30 @@
 
 cleanMyData <- function(filepath = "UCI HAR Dataset") {
-  # Step 1: Read in both training and test data
+  # Step 1a: Read in both training and test data
   XData = readInXData(filepath)
   YData = readInYData(filepath)
   subjectData = readInSubjectData(filepath)
-  # Step 2: Merge the Data
+  
+  # Step 1b: Merge the Data
   mergedData = mergeData(XData, YData, subjectData)
   
+  # Step 2: Extract Only the Mean & Std for Each Measurement
+  mergedData <- extractMeanStd(mergedData)
+  
   # Step 3: Label Activities
-  mergedData <- tidyVarNames(mergedData)
   mergedData <- addActivityLabels(mergedData)
   
-  # Step 4: Reshape the data to get the required averages
+  # Step 4: Appropriately Label the dataset variable names
+  mergedData <- tidyVarNames(mergedData)
+  
+  # Step 5a: Reshape the data to get the required averages
   finalData <- reshapeData(mergedData)
   
-  # Step 5: Print the final data to file
-  write.table(finalData, file=paste(filepath, "cleanedData.txt", sep="/"))
-  return (finalData);
+  # Step 5b: Print the final data to file
+  write.table(finalData, file="cleanedData.txt", row.names=FALSE)
+  #return (finalData);
+  View(finalData)
+  return("Data Cleaned and saved to 'cleanedData.txt'");
 }
 
 readInXData <- function(filepath){
@@ -70,31 +78,41 @@ readInSubjectData <- function(filepath) {
                       colClasses=sTest.classes, col.names = c("SubjectID"))
   return (list(train = sTrain, test = sTest));
 }
+
 #This function merges the data, both X to Y and training set to test set
 mergeData <- function(x = list(), y = list(), s = list()) {
   xDataMerged <- rbind(x$train,x$test)
-  meanString <- "mean\\(\\)"
-  stdString <- "std\\(\\)"
-  # Step 4: Trim unwanted Columns by keeping only mean() and std()
-  xDataMerged <- xDataMerged [,grepl(meanString,names(xDataMerged),ignore.case = TRUE) 
-                              | grepl(stdString,names(xDataMerged),ignore.case = TRUE)]
-  
-  
+    
   yDataMerged <- rbind(y$train,y$test)
   sDataMerged <- rbind(s$train,s$test)
   
   allDataMerged <- cbind(sDataMerged,yDataMerged,xDataMerged)
-  #allDataMerged <- cbind(sDataMerged, allDataMerged)
   
   return (allDataMerged);
 }
 
-tidyVarNames <- function(x){
-  colnames(x) <- gsub("\\-mean\\(\\)\\-", "_Mean_", colnames(x))
-  colnames(x) <- gsub("\\-std\\(\\)\\-", "_Std_", colnames(x))
-  colnames(x) <- gsub("\\-mean\\(\\)", "_Mean", colnames(x))
-  colnames(x) <- gsub("\\-std\\(\\)", "_Std", colnames(x))
+extractMeanStd <- function(x){
+  # Look for columns with these in the names
+  meanString <- "mean\\(\\)"
+  stdString <- "std\\(\\)"
+  x <- x[,grepl(meanString,names(x),ignore.case = TRUE) 
+           | grepl(stdString,names(x),ignore.case = TRUE) 
+           | grepl("Activity",names(x))
+           | grepl("SubjectID",names(x))]
   
+  return(x)
+}
+
+tidyVarNames <- function(x){
+  colnames(x) <- gsub("\\-mean\\(\\)\\-", "Mean", colnames(x))
+  colnames(x) <- gsub("\\-std\\(\\)\\-", "StandardDeviation", colnames(x))
+  colnames(x) <- gsub("\\-mean\\(\\)", "Mean", colnames(x))
+  colnames(x) <- gsub("\\-std\\(\\)", "StandardDeviation", colnames(x))
+  colnames(x) <- gsub("^t","Time",colnames(x))
+  colnames(x) <- gsub("^f","Frequency",colnames(x))
+  colnames(x) <- gsub("[Aa]cc","Accelerometer",colnames(x))
+  colnames(x) <- gsub("[Gg]yro","Gyroscope",colnames(x))
+  colnames(x) <- gsub("[Mm]ag","Magnitude",colnames(x))
   return(x)
 }
 
@@ -103,7 +121,7 @@ addActivityLabels <- function(x){
   myFactors <- read.table("UCI HAR Dataset/activity_labels.txt")
   levels(x$Activity) <- myFactors$V2
   
-  x
+  return(x)
 }
 
 reshapeData <- function(x){
