@@ -1,5 +1,5 @@
 ## Summary
-This repository contains the files for the Get and Clean Data Project as part of the Data Science Specialisation on Coursera
+This repository contains the files for the Get and Clean Data Project as part of the Data Science Specialisation on Coursera. These files are:
 
 * run_analysis.R
 * codeBook.md
@@ -37,6 +37,7 @@ The next step is to replace the Activity Codes found in the raw data with the co
 
 #### Step 4: Appropriately Label the dataset variable names
 The task of appropriately naming the variables in the dataset is completed by the function, tidyVarNames(). This funciton takes as input the merged dataset with untidy names. Variable names are made tidy using a series of gsub commands on the colnames of the dataset. The goal of this processing is to ensure that the variable names are human readable. This is done by:
+
 1. Removing special characters such as ( ) or -
 2. Removing abbreviation such as "std" or "mag", which become "Standard Deviation" and "Magnitude".
 3. Removing abbreviation such that "f" or "t" at the start of a variable name becomes "Frequency" and "Time" respectively.
