@@ -3,7 +3,7 @@
 # The function cleanMyData is a workflow function that calls subfunctions in turn to process the data.
 # It takes as input the filepath to the data, which defaults to "UCI HAR Dataset"
 # It returns the tidied dataset, which is also written to a "tidiedData.txt" in the working directory
-cleanUCIData <- function(filepath = "UCI HAR Dataset") {
+cleanTheData <- function(filepath = "UCI HAR Dataset") {
   # Step 1a: Read in both training and test data
   XData = readInAndBindXData(filepath)
   YData = readInAndBindYData(filepath)
