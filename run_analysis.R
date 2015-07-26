@@ -1,9 +1,13 @@
+# This script contains all the functions necessary to process and tidy the UCI HAR Dataset.
 
-cleanMyData <- function(filepath = "UCI HAR Dataset") {
+# The function cleanMyData is a workflow function that calls subfunctions in turn to process the data.
+# It takes as input the filepath to the data, which defaults to "UCI HAR Dataset"
+# It returns the tidied dataset, which is also written to a "tidiedData.txt" in the working directory
+cleanUCIData <- function(filepath = "UCI HAR Dataset") {
   # Step 1a: Read in both training and test data
-  XData = readInXData(filepath)
-  YData = readInYData(filepath)
-  subjectData = readInSubjectData(filepath)
+  XData = readInAndBindXData(filepath)
+  YData = readInAndBindYData(filepath)
+  subjectData = readInAndBindSubjectData(filepath)
   
   # Step 1b: Merge the Data
   mergedData = mergeData(XData, YData, subjectData)
@@ -21,35 +25,43 @@ cleanMyData <- function(filepath = "UCI HAR Dataset") {
   finalData <- reshapeData(mergedData)
   
   # Step 5b: Print the final data to file
-  write.table(finalData, file="cleanedData.txt", row.names=FALSE)
-  #return (finalData);
-  View(finalData)
-  return("Data Cleaned and saved to 'cleanedData.txt'");
+  write.table(finalData, file="tidiedData.txt", row.names=FALSE)
+  return (finalData);
 }
 
-readInXData <- function(filepath){
-  xFeatureNames <- read.table(file = "UCI HAR Dataset/features.txt")
-  
+# This function reads in the X data for both the train and test datasets.
+# It takes as input the filepath to the data set.
+# It also reads the feature names contained in the features.txt file
+# It binds the X data, top "train" then "test" and names the variables with the feature names.
+# Finally it returns a single combined dataset
+readInAndBindXData <- function(filepath){
   # Read in X Training Data
   xTrain <- read.table(paste(filepath,"train/X_train.txt",sep="/"), nrows=5)
   xTrain.classes <- lapply(xTrain, class)
   xTrain <- read.table(paste(filepath,"train/X_train.txt",sep="/"), colClasses=xTrain.classes)
-  
-  # Set X Column names
-  colnames(xTrain) <- xFeatureNames[,2]
   
   # Read in X Test Data
   xTest <- read.table(paste(filepath,"test/X_test.txt",sep="/"), nrows=5)
   xTest.classes <- lapply(xTest, class)
   xTest <- read.table(paste(filepath,"test/X_test.txt",sep="/"), colClasses=xTest.classes)
   
-  # Set X Column names
-  colnames(xTest) <- xFeatureNames[,2]
+  # Combine the Train and Test Data
+  xDataMerged <- rbind(xTrain,xTest)
   
-  return (list(train = xTrain, test = xTest));
+  # Now assign the feature names to the data from feature.txt
+  xFeatureNames <- read.table(file = "UCI HAR Dataset/features.txt")
+  colnames(xDataMerged) <- xFeatureNames[,2]
+  
+  # Return the merged X data
+  return (xDataMerged);
 }
 
-readInYData <- function(filepath) {
+# This function reads in the Y data for both the train and test datasets.
+# It takes as input the filepath to the data set.
+# It binds the Y data, top "train" then "test" into a single column vector.
+# The data is labelled "Activity"
+# Finally it returns a single combined dataset
+readInAndBindYData <- function(filepath) {
   # Read in Y Training Data
   yTrain <- read.table(paste(filepath,"train/y_train.txt",sep="/"), nrows=5)
   yTrain.classes <- lapply(yTrain, class)
@@ -61,10 +73,20 @@ readInYData <- function(filepath) {
   yTest.classes <- lapply(yTrain, class)
   yTest <- read.table(paste(filepath,"test/y_test.txt",sep="/"), colClasses=yTest.classes, 
                       col.names = c("Activity"))
-  return (list(train = yTrain, test = yTest));
+  
+  # Combine the Train and Test Data
+  yDataMerged <- rbind(yTrain,yTest)
+  
+  # Return the merged Y data
+  return (yDataMerged);
 }
 
-readInSubjectData <- function(filepath) {
+# This function reads in the Subject data for both the train and test datasets.
+# It takes as input the filepath to the data set
+# It binds the Subject data, top "train" then "test" into a single column vector.
+# The data is labelled "SubjectID"
+# Finally it returns a single combined dataset
+readInAndBindSubjectData <- function(filepath) {
   # Read in Y Training Data
   sTrain <- read.table(paste(filepath,"train/subject_train.txt",sep="/"), nrows=5)
   sTrain.classes <- lapply(sTrain, class)
@@ -76,64 +98,104 @@ readInSubjectData <- function(filepath) {
   sTest.classes <- lapply(sTrain, class)
   sTest <- read.table(paste(filepath,"test/subject_test.txt",sep="/"), 
                       colClasses=sTest.classes, col.names = c("SubjectID"))
-  return (list(train = sTrain, test = sTest));
+  
+  # Combine the Train and Test Data
+  sDataMerged <- rbind(sTrain,sTest)
+  return (sDataMerged);
 }
 
-#This function merges the data, both X to Y and training set to test set
-mergeData <- function(x = list(), y = list(), s = list()) {
-  xDataMerged <- rbind(x$train,x$test)
-    
-  yDataMerged <- rbind(y$train,y$test)
-  sDataMerged <- rbind(s$train,s$test)
-  
-  allDataMerged <- cbind(sDataMerged,yDataMerged,xDataMerged)
-  
+# This function merges the X, Y and Subject datasets together using a simple column bind.
+# It takes as input the x (the X dataset), y (the Y dataset) and s (the Subject Data Set)
+# It returns a single combined dataset with the first column being the Subject data.
+# The second column is the Activity data. all subsequent columns are the X data.
+mergeData <- function(x = data.frame(), y = data.frame(), s = data.frame()) {
+  # Merge the data using cbind()
+  allDataMerged <- cbind(s,y,x)
+  # Return the merged dataset
   return (allDataMerged);
 }
 
+# This function takes the initial merged dataset and removes unwanted variables.
+# Unwanted variables are any variables that are not related to mean or standard deviation of measurements.
+# It does this by keeping only columns with "mean()" or "std()" in the column names.
+# The Activity and SubjectID columns are also retained.
 extractMeanStd <- function(x){
-  # Look for columns with these in the names
+  # Set up the strings we are looking for in column names.
   meanString <- "mean\\(\\)"
   stdString <- "std\\(\\)"
+  # Keep only those columns that meet this criteria.
   x <- x[,grepl(meanString,names(x),ignore.case = TRUE) 
            | grepl(stdString,names(x),ignore.case = TRUE) 
            | grepl("Activity",names(x))
            | grepl("SubjectID",names(x))]
   
+   #Return the updated dataset
   return(x)
 }
 
+# This function is responsibly for tidying the variable names of the dataset.
+# It takes as input the merged dataset with untidy names.
+# Variable names are made tidy using gsub, ensuring they are human readable.
+# It returns the dataset x with updated tidy variable names.
 tidyVarNames <- function(x){
+  # Step 1: Remove special characters around Mean and Std
   colnames(x) <- gsub("\\-mean\\(\\)\\-", "Mean", colnames(x))
-  colnames(x) <- gsub("\\-std\\(\\)\\-", "StandardDeviation", colnames(x))
   colnames(x) <- gsub("\\-mean\\(\\)", "Mean", colnames(x))
+  # Step 1a: Replace the  
+  colnames(x) <- gsub("\\-std\\(\\)\\-", "StandardDeviation", colnames(x))
   colnames(x) <- gsub("\\-std\\(\\)", "StandardDeviation", colnames(x))
+  # Step 2: Replace the t and f at the start of variables with Time and Frequency respectivley.
   colnames(x) <- gsub("^t","Time",colnames(x))
   colnames(x) <- gsub("^f","Frequency",colnames(x))
+  # Step3: Replace the abbrevations for Accelerometer and Gyroscope with the actual words
   colnames(x) <- gsub("[Aa]cc","Accelerometer",colnames(x))
   colnames(x) <- gsub("[Gg]yro","Gyroscope",colnames(x))
+  # Step 4: Replace the abbrevations for Magnitude with the actual Words.
   colnames(x) <- gsub("[Mm]ag","Magnitude",colnames(x))
+  # Step 5: Tidy up the Axis Details
+  colnames(x) <-gsub("MeanX$","XAxisMean",colnames(x))
+  colnames(x) <-gsub("MeanY$","YAxisMean",colnames(x))
+  colnames(x) <-gsub("MeanZ$","ZAxisMean",colnames(x))
+  colnames(x) <-gsub("StandardDeviationX$","XAxisStandardDeviation",colnames(x))
+  colnames(x) <-gsub("StandardDeviationY$","YAxisStandardDeviation",colnames(x))
+  colnames(x) <-gsub("StandardDeviationZ$","ZAxisStandardDeviation",colnames(x))
+  
+  
   return(x)
 }
 
+# This function replaces the Activity Codes in the raw dataset with the descriptive Activity Name
+# It takes as input the data frame x
+# It returns the dataframe x with the Activity Codes replaced by descriptive Activity Names.
 addActivityLabels <- function(x){
   x$Activity <- as.factor(x$Activity)
   myFactors <- read.table("UCI HAR Dataset/activity_labels.txt")
   levels(x$Activity) <- myFactors$V2
-  
   return(x)
 }
 
+# This function reshapes the merged dataset so that the values for each variable are combined
+# and averaged for each activity and each subject.
+# The function loads the reshape2 library to do this.
+# It returns the reshaped dataset.
 reshapeData <- function(x){
+  # Load the library reshape2
   library(reshape2)
+  
+  # Get the ID names and measure.vars names for the melt function
+  # Id names are in column 1 and 2
   idNames = colnames(x)[1:2]
+  # measure.vars are all other variables.
   varChoice = colnames(x) %in% idNames
   varNames = colnames(x)[!varChoice]
-
-  meltedX <- melt(x,id=idNames, measure.vars = varNames)
   
+  # Melt the dataset 
+  meltedX <- melt(x,id=idNames, measure.vars = varNames)
+  # Recast the dataset using dcast, grouping by Activity and SubjectID across all variables
+  # And applying a mean across each of these groups.
   recastX <- dcast(meltedX, Activity + SubjectID ~ variable, mean)
   
+  # Return the recast dataset.
   return(recastX)
 }
 
